@@ -126,8 +126,21 @@ The workflow in `.github/workflows/daily_job_search.yml` runs the pipeline autom
    | `GMAIL_SENDER` | Sender Gmail address |
    | `GMAIL_APP_PASS` | Gmail App Password |
    | `GMAIL_RECIPIENT` | Recipient email address |
+   | `CV_BASE64` | Your CV PDF encoded as a base64 string (see below) |
 
-3. Commit your `CV.pdf` to the repository root (or adjust the `CV_PATH` env var in the workflow file).
+3. Encode your `CV.pdf` as base64 and add it as the `CV_BASE64` secret:
+
+   **Linux / macOS:**
+   ```bash
+   base64 -w 0 CV.pdf
+   ```
+
+   **Windows (PowerShell):**
+   ```powershell
+   [Convert]::ToBase64String([IO.File]::ReadAllBytes("CV.pdf"))
+   ```
+
+   Copy the output and paste it as the value of the `CV_BASE64` secret in GitHub.
 
 The workflow also supports **manual triggers**: go to **Actions → Daily Job Search → Run workflow**.
 

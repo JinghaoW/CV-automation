@@ -49,7 +49,10 @@ def evaluate_job(profile: dict, job: dict, client: OpenAI) -> dict:
             messages=[{"role": "user", "content": prompt}],
             temperature=0.1,
         )
-        raw = response.choices[0].message.content.strip()
+        content = response.choices[0].message.content
+        if content is None:
+            raise ValueError("LLM returned no content (content was None)")
+        raw = content.strip()
         evaluation = json.loads(raw)
     except json.JSONDecodeError as exc:
         print(

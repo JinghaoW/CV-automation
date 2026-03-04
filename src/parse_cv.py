@@ -50,7 +50,10 @@ def extract_skills_with_llm(cv_text: str, client: OpenAI) -> dict:
         temperature=0.2,
     )
 
-    raw = response.choices[0].message.content.strip()
+    content = response.choices[0].message.content
+    if content is None:
+        raise ValueError("LLM returned no content (content was None)")
+    raw = content.strip()
 
     try:
         profile = json.loads(raw)
