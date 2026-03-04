@@ -46,26 +46,37 @@ pip install -r requirements.txt
 
 ## Configuration
 
-All configuration is provided through **environment variables**. Export them in your shell or add them to a `.env` file (not committed to git).
+All settings live in **`config.py`** at the project root. Open it and fill in
+your values — every setting has an inline comment explaining what it does.
 
-| Variable | Required | Description |
-|----------|----------|-------------|
+```python
+# config.py (excerpt)
+
+CV_PATH        = os.environ.get("CV_PATH", "cv/CV.pdf")   # path to your CV
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")     # OpenAI key
+GMAIL_SENDER   = os.environ.get("GMAIL_SENDER",   "")     # sender Gmail
+GMAIL_APP_PASS = os.environ.get("GMAIL_APP_PASS", "")     # Gmail App Password
+GMAIL_RECIPIENT= os.environ.get("GMAIL_RECIPIENT","")     # recipient email
+EMAIL_SUBJECT  = os.environ.get("EMAIL_SUBJECT",  "Daily Job Search Report")
+```
+
+You can configure the pipeline in two ways:
+
+| Method | When to use |
+|--------|-------------|
+| Edit `config.py` directly | Local development |
+| Export environment variables | CI / GitHub Actions |
+
+Environment variables always take precedence over values written in `config.py`.
+
+| Variable / `config.py` key | Required | Description |
+|----------------------------|----------|-------------|
 | `OPENAI_API_KEY` | ✅ | Your OpenAI API key |
 | `GMAIL_SENDER` | ✅ | Gmail address used to send the report (e.g. `you@gmail.com`) |
 | `GMAIL_APP_PASS` | ✅ | 16-character Gmail App Password (enter without spaces) |
 | `GMAIL_RECIPIENT` | ✅ | Email address that receives the report |
-| `CV_PATH` | ❌ | Path to your CV PDF (default: `CV.pdf` in the project root) |
+| `CV_PATH` | ❌ | Path to your CV PDF (default: `cv/CV.pdf`; uses `os.path.join` internally for cross-platform compatibility) |
 | `EMAIL_SUBJECT` | ❌ | Custom subject line (default: `Daily Job Search Report`) |
-
-**Example (Linux / macOS):**
-
-```bash
-export OPENAI_API_KEY="sk-..."
-export GMAIL_SENDER="you@gmail.com"
-export GMAIL_APP_PASS="abcdefghijklmnop"
-export GMAIL_RECIPIENT="inbox@example.com"
-export CV_PATH="CV.pdf"
-```
 
 ---
 
@@ -73,7 +84,8 @@ export CV_PATH="CV.pdf"
 
 ### 1. Add your CV
 
-Place your CV as a PDF in the project root and set `CV_PATH` accordingly (default filename: `CV.pdf`).
+Place your CV PDF inside the **`cv/`** folder (the default expected filename is `CV.pdf`).
+If you use a different filename, update `CV_PATH` in `config.py` accordingly.
 
 ### 2. Run the full pipeline
 
@@ -152,9 +164,11 @@ After each run, `output/report.html` and `data/jobs_scored.json` are uploaded as
 
 ```
 CV-automation/
+├── config.py                      # ← Edit this: API keys, email settings, CV path
 ├── main.py                        # Pipeline orchestrator
 ├── requirements.txt               # Python dependencies
-├── CV.pdf                         # Your CV (add this yourself, not committed)
+├── cv/
+│   └── CV.pdf                     # Your CV (add this yourself, not committed)
 ├── data/
 │   ├── profile.json               # Generated: candidate profile
 │   ├── jobs_raw.json              # Generated: raw job listings

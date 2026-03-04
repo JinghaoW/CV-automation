@@ -7,7 +7,8 @@ import sys
 import pdfplumber
 from openai import OpenAI
 
-CV_PATH = os.environ.get("CV_PATH", "CV.pdf")
+import config
+
 PROFILE_PATH = os.path.join("data", "profile.json")
 
 
@@ -63,14 +64,16 @@ def extract_skills_with_llm(cv_text: str, client: OpenAI) -> dict:
     return profile
 
 
-def parse_cv(cv_path: str = CV_PATH) -> dict:
+def parse_cv(cv_path: str = config.CV_PATH) -> dict:
     """Full parse pipeline: read PDF → extract skills via LLM → save profile.
 
     Returns the profile dict.
     """
-    api_key = os.environ.get("OPENAI_API_KEY")
+    api_key = config.OPENAI_API_KEY
     if not api_key:
-        raise EnvironmentError("OPENAI_API_KEY environment variable is not set")
+        raise EnvironmentError(
+            "OPENAI_API_KEY is not set. Add it to config.py or export it as an environment variable."
+        )
 
     client = OpenAI(api_key=api_key)
 

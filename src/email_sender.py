@@ -6,6 +6,8 @@ import sys
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
+import config
+
 REPORT_PATH = os.path.join("output", "report.html")
 
 
@@ -38,30 +40,35 @@ def send_via_smtp(
 
 def send_email(
     report_path: str = REPORT_PATH,
-    subject: str = "Daily Job Search Report",
+    subject: str = config.EMAIL_SUBJECT,
 ) -> None:
-    """Read environment variables and send the HTML report via Gmail.
+    """Read configuration and send the HTML report via Gmail.
 
-    Required environment variables:
-        GMAIL_SENDER   – sender Gmail address (e.g. you@gmail.com)
-        GMAIL_APP_PASS – Gmail App Password (16-char, no spaces)
-        GMAIL_RECIPIENT – recipient email address
+    Settings are read from config.py (which itself falls back to environment
+    variables).  Required settings:
+        GMAIL_SENDER     – sender Gmail address (e.g. you@gmail.com)
+        GMAIL_APP_PASS   – Gmail App Password (16-char, no spaces)
+        GMAIL_RECIPIENT  – recipient email address
 
     Optional:
-        EMAIL_SUBJECT  – overrides the default subject line
+        EMAIL_SUBJECT    – overrides the default subject line
     """
-    sender = os.environ.get("GMAIL_SENDER")
-    app_password = os.environ.get("GMAIL_APP_PASS")
-    recipient = os.environ.get("GMAIL_RECIPIENT")
+    sender = config.GMAIL_SENDER
+    app_password = config.GMAIL_APP_PASS
+    recipient = config.GMAIL_RECIPIENT
 
     if not sender:
-        raise EnvironmentError("GMAIL_SENDER environment variable is not set")
+        raise EnvironmentError(
+            "GMAIL_SENDER is not set. Add it to config.py or export it as an environment variable."
+        )
     if not app_password:
-        raise EnvironmentError("GMAIL_APP_PASS environment variable is not set")
+        raise EnvironmentError(
+            "GMAIL_APP_PASS is not set. Add it to config.py or export it as an environment variable."
+        )
     if not recipient:
-        raise EnvironmentError("GMAIL_RECIPIENT environment variable is not set")
-
-    subject = os.environ.get("EMAIL_SUBJECT", subject)
+        raise EnvironmentError(
+            "GMAIL_RECIPIENT is not set. Add it to config.py or export it as an environment variable."
+        )
 
     if not os.path.exists(report_path):
         raise FileNotFoundError(f"Report file not found: {report_path}")

@@ -33,13 +33,14 @@ jobs:
             echo "ERROR: CV_BASE64 secret is not set. Please encode your CV.pdf as base64 and add it as a repository secret named CV_BASE64." >&2
             exit 1
           fi
-          echo "$CV_BASE64" | base64 --decode > CV.pdf
-          CV_SIZE=$(wc -c < CV.pdf)
+          mkdir -p cv
+          echo "$CV_BASE64" | base64 --decode > cv/CV.pdf
+          CV_SIZE=$(wc -c < cv/CV.pdf)
           if [ "$CV_SIZE" -eq 0 ]; then
-            echo "ERROR: Decoded CV.pdf is empty. Check that the CV_BASE64 secret contains a valid base64-encoded PDF." >&2
+            echo "ERROR: Decoded cv/CV.pdf is empty. Check that the CV_BASE64 secret contains a valid base64-encoded PDF." >&2
             exit 1
           fi
-          echo "CV.pdf written successfully ($CV_SIZE bytes)"
+          echo "cv/CV.pdf written successfully ($CV_SIZE bytes)"
 
       - name: Run pipeline
         env:
@@ -47,7 +48,6 @@ jobs:
           GMAIL_SENDER: ${{ secrets.GMAIL_SENDER }}
           GMAIL_APP_PASS: ${{ secrets.GMAIL_APP_PASS }}
           GMAIL_RECIPIENT: ${{ secrets.GMAIL_RECIPIENT }}
-          CV_PATH: CV.pdf
         run: python main.py
 
       - name: Upload report as artifact
