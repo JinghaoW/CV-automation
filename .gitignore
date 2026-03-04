@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+venv/
+.venv/
+CV.pdf
+data/jobs_raw.json
+data/jobs_scored.json
+output/report.html
