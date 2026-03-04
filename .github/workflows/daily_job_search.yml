@@ -1,0 +1,51 @@
+name: Daily Job Search
+
+on:
+  schedule:
+    # Run every day at 07:00 UTC
+    - cron: "0 7 * * *"
+  workflow_dispatch:  # allow manual triggers
+
+jobs:
+  job-search:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run pipeline
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GMAIL_SENDER: ${{ secrets.GMAIL_SENDER }}
+          GMAIL_APP_PASS: ${{ secrets.GMAIL_APP_PASS }}
+          GMAIL_RECIPIENT: ${{ secrets.GMAIL_RECIPIENT }}
+          CV_PATH: CV.pdf
+        run: python main.py
+
+      - name: Upload report as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: job-report-${{ github.run_id }}
+          path: output/report.html
+          if-no-files-found: warn
+
+      - name: Upload scored jobs as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jobs-scored-${{ github.run_id }}
+          path: data/jobs_scored.json
+          if-no-files-found: warn
