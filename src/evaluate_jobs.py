@@ -7,6 +7,8 @@ import time
 
 from openai import OpenAI
 
+import config
+
 PROFILE_PATH = os.path.join("data", "profile.json")
 JOBS_RAW_PATH = os.path.join("data", "jobs_raw.json")
 JOBS_SCORED_PATH = os.path.join("data", "jobs_scored.json")
@@ -49,7 +51,10 @@ def evaluate_job(profile: dict, job: dict, client: OpenAI) -> dict:
             messages=[{"role": "user", "content": prompt}],
             temperature=0.1,
         )
-        raw = response.choices[0].message.content.strip()
+        content = response.choices[0].message.content
+        if content is None:
+            raise ValueError("LLM returned no content (content was None)")
+        raw = content.strip()
         evaluation = json.loads(raw)
     except json.JSONDecodeError as exc:
         print(
@@ -73,9 +78,11 @@ def evaluate_jobs(
     jobs_raw_path: str = JOBS_RAW_PATH,
 ) -> list[dict]:
     """Load profile and raw jobs, evaluate each, save scored jobs, and return them."""
-    api_key = os.environ.get("OPENAI_API_KEY")
+    api_key = config.OPENAI_API_KEY
     if not api_key:
-        raise EnvironmentError("OPENAI_API_KEY environment variable is not set")
+        raise EnvironmentError(
+            "OPENAI_API_KEY is not set. Add it to config.py or export it as an environment variable."
+        )
 
     for path in (profile_path, jobs_raw_path):
         if not os.path.exists(path):
