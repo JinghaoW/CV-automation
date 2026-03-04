@@ -58,6 +58,7 @@ GMAIL_SENDER   = os.environ.get("GMAIL_SENDER",   "")     # sender Gmail
 GMAIL_APP_PASS = os.environ.get("GMAIL_APP_PASS", "")     # Gmail App Password
 GMAIL_RECIPIENT= os.environ.get("GMAIL_RECIPIENT","")     # recipient email
 EMAIL_SUBJECT  = os.environ.get("EMAIL_SUBJECT",  "Daily Job Search Report")
+COUNTRY        = os.environ.get("COUNTRY",        "")     # optional country/region filter
 ```
 
 You can configure the pipeline in two ways:
@@ -77,6 +78,7 @@ Environment variables always take precedence over values written in `config.py`.
 | `GMAIL_RECIPIENT` | ✅ | Email address that receives the report |
 | `CV_PATH` | ❌ | Path to your CV PDF (default: `cv/CV.pdf`; uses `os.path.join` internally for cross-platform compatibility) |
 | `EMAIL_SUBJECT` | ❌ | Custom subject line (default: `Daily Job Search Report`) |
+| `COUNTRY` | ❌ | Filter jobs by country or region (e.g. `"United States"`, `"United Kingdom"`, `"Remote"`). Leave blank to include all locations (default: `""`) |
 
 ---
 
@@ -110,6 +112,27 @@ python -m src.email_sender    # Step 6 – send email
 
 ---
 
+## Testing
+
+Unit tests live in the `tests/` directory and can be run with:
+
+```bash
+pytest tests/ -v
+```
+
+The tests cover all six modules and do **not** require an OpenAI API key, a Gmail account, or a CV PDF — external services are replaced with lightweight mocks. 58 tests are included covering:
+
+| Test file | What is tested |
+|-----------|----------------|
+| `test_rank_jobs.py` | Sorting, grouping by classification and country, edge cases |
+| `test_report_builder.py` | HTML generation, score badges, XSS escaping |
+| `test_job_search.py` | Country inference, country filtering, deduplication |
+| `test_evaluate_jobs.py` | Prompt building, LLM response handling, file I/O |
+| `test_email_sender.py` | Email construction, configuration validation |
+| `test_parse_cv.py` | Profile extraction, LLM response handling, error cases |
+
+---
+
 ## Output
 
 | File | Description |
@@ -139,6 +162,7 @@ The workflow in `.github/workflows/daily_job_search.yml` runs the pipeline autom
    | `GMAIL_APP_PASS` | Gmail App Password |
    | `GMAIL_RECIPIENT` | Recipient email address |
    | `CV_BASE64` | Your CV PDF encoded as a base64 string (see below) |
+   | `COUNTRY` | *(optional)* Country/region filter (e.g. `United States`) |
 
 3. Encode your `CV.pdf` as base64 and add it as the `CV_BASE64` secret:
 
@@ -182,6 +206,13 @@ CV-automation/
 │   ├── rank_jobs.py               # Step 4 – ranking & classification
 │   ├── report_builder.py          # Step 5 – HTML report generation
 │   └── email_sender.py            # Step 6 – Gmail delivery
+├── tests/
+│   ├── test_rank_jobs.py          # Unit tests for ranking logic
+│   ├── test_report_builder.py     # Unit tests for HTML report generation
+│   ├── test_job_search.py         # Unit tests for job search & filtering
+│   ├── test_evaluate_jobs.py      # Unit tests for job evaluation prompts
+│   ├── test_email_sender.py       # Unit tests for email construction
+│   └── test_parse_cv.py           # Unit tests for CV parsing
 └── .github/
     └── workflows/
         └── daily_job_search.yml   # Scheduled GitHub Actions workflow
@@ -198,3 +229,4 @@ CV-automation/
 | `requests` | HTTP requests to job search APIs |
 | `beautifulsoup4` | Parse HTML job descriptions |
 | `pandas` | Rank and group job data |
+| `pytest` | Run the unit test suite |

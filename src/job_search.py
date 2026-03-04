@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import sys
 import time
 from typing import Optional
@@ -141,7 +142,8 @@ def _infer_country(location: str) -> str:
         "anywhere": "Remote",
     }
     for key, country in mappings.items():
-        if key in location_lower:
+        # Use word boundaries to avoid partial matches (e.g. "us" inside "australia")
+        if re.search(r"\b" + re.escape(key) + r"\b", location_lower):
             return country
     return location or "Unknown"
 
