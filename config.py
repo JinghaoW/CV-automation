@@ -37,6 +37,34 @@ CV_PATH: str = os.environ.get("CV_PATH", os.path.join("cv", "CV.pdf"))
 OPENAI_API_KEY: str = os.environ.get("OPENAI_API_KEY", "")
 
 # ---------------------------------------------------------------------------
+# LLM abstraction
+# ---------------------------------------------------------------------------
+
+# Provider used by the centralized LLM abstraction layer.
+# Supported values: openai, deepseek, gemini, openrouter, ollama.
+LLM_PROVIDER: str = os.environ.get("LLM_PROVIDER", "openai")
+
+# Default model name for the configured provider.
+# You can override this per run via the LLM_MODEL environment variable.
+LLM_MODEL: str = os.environ.get("LLM_MODEL", "gpt-4o-mini")
+
+# Optional generic API key for the LLM abstraction.
+# Provider-specific keys still take precedence when present.
+LLM_API_KEY: str = os.environ.get("LLM_API_KEY", "")
+
+# Optional base URL for OpenAI-compatible providers.
+LLM_BASE_URL: str = os.environ.get("LLM_BASE_URL", "")
+
+# Request timeout in seconds for LLM calls.
+LLM_TIMEOUT: float = float(os.environ.get("LLM_TIMEOUT", "60"))
+
+# Maximum retry attempts for LLM calls.
+LLM_MAX_RETRIES: int = int(os.environ.get("LLM_MAX_RETRIES", "3"))
+
+# Default temperature for LLM requests.
+LLM_TEMPERATURE: float = float(os.environ.get("LLM_TEMPERATURE", "0.2"))
+
+# ---------------------------------------------------------------------------
 # Gmail (SMTP)
 # ---------------------------------------------------------------------------
 
@@ -65,3 +93,18 @@ EMAIL_SUBJECT: str = os.environ.get("EMAIL_SUBJECT", "Daily Job Search Report")
 # Override with the COUNTRY environment variable when required.
 # Default: "" (no filter – all countries/regions included)
 COUNTRY: str = os.environ.get("COUNTRY", "")
+
+# ---------------------------------------------------------------------------
+# Celery / scheduler
+# ---------------------------------------------------------------------------
+
+# URL for the Celery broker (e.g., redis://localhost:6379/0)
+CELERY_BROKER_URL: str = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
+
+# Result backend for Celery (optional)
+CELERY_RESULT_BACKEND: str = os.environ.get("CELERY_RESULT_BACKEND", "redis://localhost:6379/1")
+
+# Scheduled hour/minute (UTC) for the daily workflow
+SCHEDULE_HOUR_UTC: int = int(os.environ.get("SCHEDULE_HOUR_UTC", "7"))
+SCHEDULE_MINUTE_UTC: int = int(os.environ.get("SCHEDULE_MINUTE_UTC", "0"))
+

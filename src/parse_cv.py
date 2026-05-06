@@ -1,15 +1,60 @@
-"""Parse CV.pdf and extract skills using an LLM."""
+"""Parse CV.pdf and extract skills using an LLM.
+
+Refactored for better testability and typing while preserving the original
+`parse_cv` behavior and file-based outputs.
+"""
+
+from __future__ import annotations
 
 import json
 import os
 import sys
+from dataclasses import dataclass, field
+from typing import Any, Dict, List
 
 import pdfplumber
-from openai import OpenAI
 
 import config
+from src.llm_client import OpenAI, validate_llm_configuration
 
 PROFILE_PATH = os.path.join("data", "profile.json")
+
+
+@dataclass
+class Profile:
+    name: str = ""
+    skills: List[str] = field(default_factory=list)
+    experience_years: int | float = 0
+    education: List[str] = field(default_factory=list)
+    languages: List[str] = field(default_factory=list)
+    summary: str = ""
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "Profile":
+        return cls(
+            name=data.get("name", ""),
+            skills=list(data.get("skills", [])) if data.get("skills") is not None else [],
+            experience_years=data.get("experience_years", 0) or 0,
+            education=list(data.get("education", [])) if data.get("education") is not None else [],
+            languages=list(data.get("languages", [])) if data.get("languages") is not None else [],
+            summary=data.get("summary", "") or "",
+        )
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "name": self.name,
+            "skills": self.skills,
+            "experience_years": self.experience_years,
+            "education": self.education,
+            "languages": self.languages,
+            "summary": self.summary,
+        }
+
+
+def _config_value(name: str, default):
+    if hasattr(config, "__dict__") and name in config.__dict__:
+        return getattr(config, name)
+    return default
 
 
 def extract_text_from_pdf(pdf_path: str) -> str:
@@ -17,7 +62,7 @@ def extract_text_from_pdf(pdf_path: str) -> str:
     if not os.path.exists(pdf_path):
         raise FileNotFoundError(f"CV file not found: {pdf_path}")
 
-    text_parts = []
+    text_parts: List[str] = []
     with pdfplumber.open(pdf_path) as pdf:
         for page in pdf.pages:
             page_text = page.extract_text()
@@ -30,8 +75,8 @@ def extract_text_from_pdf(pdf_path: str) -> str:
     return "\n".join(text_parts)
 
 
-def extract_skills_with_llm(cv_text: str, client: OpenAI) -> dict:
-    """Use an LLM to extract structured skills and profile from CV text."""
+def parse_text_to_profile(cv_text: str, client: OpenAI) -> Profile:
+    """Parse CV text via an LLM client and return a typed Profile."""
     prompt = (
         "You are a professional CV analyzer. "
         "Given the following CV text, extract a structured profile as JSON with these fields:\n"
@@ -45,50 +90,71 @@ def extract_skills_with_llm(cv_text: str, client: OpenAI) -> dict:
         f"CV text:\n{cv_text}"
     )
 
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.2,
-    )
+    data = client.generate_json(prompt, temperature=0.2)
+    return Profile.from_dict(data)
 
-    content = response.choices[0].message.content
-    if content is None:
-        raise ValueError("LLM returned no content (content was None)")
-    raw = content.strip()
 
-    try:
-        profile = json.loads(raw)
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"LLM returned invalid JSON: {raw}") from exc
+def extract_skills_with_llm(cv_text: str, client: OpenAI) -> dict:
+    """Backward-compatible wrapper that returns a dict (keeps existing API)."""
+    profile = parse_text_to_profile(cv_text, client)
+    return profile.to_dict()
 
-    return profile
+
+def save_profile(profile: Profile, path: str = PROFILE_PATH) -> None:
+    os.makedirs(os.path.dirname(path) or "data", exist_ok=True)
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(profile.to_dict(), fh, indent=2, ensure_ascii=False)
+
+
+def save_cv_file(content_bytes: bytes, dest_path: str) -> None:
+    os.makedirs(os.path.dirname(dest_path) or "cv", exist_ok=True)
+    with open(dest_path, "wb") as fh:
+        fh.write(content_bytes)
 
 
 def parse_cv(cv_path: str = config.CV_PATH) -> dict:
     """Full parse pipeline: read PDF → extract skills via LLM → save profile.
 
-    Returns the profile dict.
+    Returns the profile dict for backwards compatibility.
     """
-    api_key = config.OPENAI_API_KEY
-    if not api_key:
-        raise EnvironmentError(
-            "OPENAI_API_KEY is not set. Add it to config.py or export it as an environment variable."
-        )
+    provider = str(_config_value("LLM_PROVIDER", "openai"))
+    api_key = _config_value("LLM_API_KEY", "") or _config_value("OPENAI_API_KEY", "")
+    model = str(_config_value("LLM_MODEL", "gpt-4o-mini"))
+    base_url = _config_value("LLM_BASE_URL", "") or None
+    timeout = float(_config_value("LLM_TIMEOUT", 60))
+    max_retries = int(_config_value("LLM_MAX_RETRIES", 3))
+    temperature = float(_config_value("LLM_TEMPERATURE", 0.2))
 
-    client = OpenAI(api_key=api_key)
+    validate_llm_configuration(
+        provider=provider,
+        api_key=api_key,
+        model=model,
+        base_url=base_url,
+        timeout=timeout,
+        max_retries=max_retries,
+        temperature=temperature,
+    )
+
+    client = OpenAI(
+        provider=provider,
+        api_key=api_key,
+        model=model,
+        base_url=base_url,
+        timeout=timeout,
+        max_retries=max_retries,
+        temperature=temperature,
+    )
 
     print(f"[parse_cv] Extracting text from {cv_path} …")
     cv_text = extract_text_from_pdf(cv_path)
 
     print("[parse_cv] Extracting skills with LLM …")
-    profile = extract_skills_with_llm(cv_text, client)
+    profile = parse_text_to_profile(cv_text, client)
 
-    os.makedirs("data", exist_ok=True)
-    with open(PROFILE_PATH, "w", encoding="utf-8") as fh:
-        json.dump(profile, fh, indent=2, ensure_ascii=False)
+    save_profile(profile, PROFILE_PATH)
 
     print(f"[parse_cv] Profile saved to {PROFILE_PATH}")
-    return profile
+    return profile.to_dict()
 
 
 if __name__ == "__main__":

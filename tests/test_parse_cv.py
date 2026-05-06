@@ -14,11 +14,9 @@ from src.parse_cv import extract_skills_with_llm, parse_cv
 # extract_skills_with_llm
 # ---------------------------------------------------------------------------
 
-def _make_mock_client(content: str) -> MagicMock:
+def _make_mock_client(content) -> MagicMock:
     client = MagicMock()
-    choice = MagicMock()
-    choice.message.content = content
-    client.chat.completions.create.return_value.choices = [choice]
+    client.generate_json.return_value = content
     return client
 
 
@@ -31,7 +29,7 @@ def test_extract_skills_valid_json():
         "languages": ["English"],
         "summary": "Experienced researcher.",
     }
-    client = _make_mock_client(json.dumps(profile_data))
+    client = _make_mock_client(profile_data)
     result = extract_skills_with_llm("some cv text", client)
     assert result["name"] == "Jane Doe"
     assert "Python" in result["skills"]
@@ -40,14 +38,16 @@ def test_extract_skills_valid_json():
 
 def test_extract_skills_none_content():
     """None response content should raise ValueError."""
-    client = _make_mock_client(None)
+    client = MagicMock()
+    client.generate_json.side_effect = ValueError("LLM returned no content (content was None)")
     with pytest.raises(ValueError, match="None"):
         extract_skills_with_llm("some cv text", client)
 
 
 def test_extract_skills_invalid_json():
     """Invalid JSON from the LLM should raise ValueError."""
-    client = _make_mock_client("not json at all")
+    client = MagicMock()
+    client.generate_json.side_effect = ValueError("LLM returned invalid JSON: not json at all")
     with pytest.raises(ValueError, match="invalid JSON"):
         extract_skills_with_llm("some cv text", client)
 
@@ -72,7 +72,7 @@ def test_parse_cv_saves_profile(mock_extract_text, mock_openai_cls, mock_config)
         "languages": ["English"],
         "summary": "Python dev.",
     }
-    mock_client = _make_mock_client(json.dumps(profile_data))
+    mock_client = _make_mock_client(profile_data)
     mock_openai_cls.return_value = mock_client
 
     with tempfile.TemporaryDirectory() as tmpdir:

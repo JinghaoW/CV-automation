@@ -1,4 +1,4 @@
-"""Main pipeline orchestrator for the CV-automation job search system.
+"""Main entry point for CV-automation job search system.
 
 Pipeline steps
 --------------
@@ -8,9 +8,20 @@ Pipeline steps
 4. rank_jobs     – Rank & classify jobs
 5. report_builder– Build HTML report          → output/report.html
 6. email_sender  – Send report via Gmail
+
+Usage:
+  # Run CLI pipeline
+  python main.py
+
+  # Run API server
+  python main.py --server
+
+  # Run API server with custom port
+  python main.py --server --port 8080
 """
 
 import sys
+import argparse
 
 from src.parse_cv import parse_cv
 from src.job_search import run as search_jobs
@@ -91,4 +102,53 @@ def run_pipeline() -> None:
 
 
 if __name__ == "__main__":
-    run_pipeline()
+    parser = argparse.ArgumentParser(
+        description="CV-automation: Automated job search pipeline"
+    )
+    parser.add_argument(
+        "--server",
+        action="store_true",
+        help="Run as API server instead of CLI pipeline",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=8000,
+        help="Port for API server (default: 8000)",
+    )
+    parser.add_argument(
+        "--host",
+        type=str,
+        default="0.0.0.0",
+        help="Host for API server (default: 0.0.0.0)",
+    )
+    parser.add_argument(
+        "--reload",
+        action="store_true",
+        help="Auto-reload API server on file changes",
+    )
+
+    args = parser.parse_args()
+
+    if args.server:
+        # Run API server
+        import uvicorn
+        from src.api.app import create_app
+
+        app = create_app()
+
+        print(f"\n[main] Starting API server on http://{args.host}:{args.port}")
+        print(f"[main] Dashboard: http://{args.host}:{args.port}/")
+        print(f"[main] API docs: http://{args.host}:{args.port}/docs")
+        print("[main] Press Ctrl+C to stop\n")
+
+        uvicorn.run(
+            app,
+            host=args.host,
+            port=args.port,
+            reload=args.reload,
+            log_level="info",
+        )
+    else:
+        # Run CLI pipeline
+        run_pipeline()

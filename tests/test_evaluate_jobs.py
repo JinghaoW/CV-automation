@@ -47,18 +47,16 @@ def test_build_evaluation_prompt_empty_profile():
 # evaluate_job – mocking OpenAI client
 # ---------------------------------------------------------------------------
 
-def _make_mock_client(content: str) -> MagicMock:
+def _make_mock_client(content) -> MagicMock:
     client = MagicMock()
-    choice = MagicMock()
-    choice.message.content = content
-    client.chat.completions.create.return_value.choices = [choice]
+    client.generate_json.return_value = content
     return client
 
 
 def test_evaluate_job_success():
     profile = {"skills": ["Python"], "summary": "Developer"}
     job = {"title": "Engineer", "company": "Co", "description": "Python job", "url": "https://co.com"}
-    llm_response = json.dumps({"score": 8, "classification": "industry", "reasoning": "Good match"})
+    llm_response = {"score": 8, "classification": "industry", "reasoning": "Good match"}
 
     client = _make_mock_client(llm_response)
     result = evaluate_job(profile, job, client)
@@ -73,7 +71,8 @@ def test_evaluate_job_none_content():
     """LLM returning None content should produce score 0."""
     profile = {"skills": ["Python"], "summary": "Developer"}
     job = {"title": "Engineer", "company": "Co", "description": "desc", "url": ""}
-    client = _make_mock_client(None)
+    client = MagicMock()
+    client.generate_json.side_effect = ValueError("LLM returned no content (content was None)")
 
     result = evaluate_job(profile, job, client)
     assert result["score"] == 0
@@ -84,7 +83,8 @@ def test_evaluate_job_invalid_json():
     """LLM returning invalid JSON should produce score 0."""
     profile = {"skills": ["Go"], "summary": "Engineer"}
     job = {"title": "Backend", "company": "X", "description": "desc", "url": ""}
-    client = _make_mock_client("this is not json")
+    client = MagicMock()
+    client.generate_json.side_effect = ValueError("LLM returned invalid JSON: this is not json")
 
     result = evaluate_job(profile, job, client)
     assert result["score"] == 0
@@ -99,7 +99,7 @@ def test_evaluate_job_invalid_json():
 def test_evaluate_jobs_saves_scored(mock_openai_cls, mock_config):
     mock_config.OPENAI_API_KEY = "test-key"
 
-    llm_content = json.dumps({"score": 7, "classification": "research", "reasoning": "Nice"})
+    llm_content = {"score": 7, "classification": "research", "reasoning": "Nice"}
     mock_client = _make_mock_client(llm_content)
     mock_openai_cls.return_value = mock_client
 

@@ -11,6 +11,7 @@ import requests
 from bs4 import BeautifulSoup
 
 import config
+from src.recommendation_history import RecommendationHistory, stable_job_hash
 
 PROFILE_PATH = os.path.join("data", "profile.json")
 JOBS_RAW_PATH = os.path.join("data", "jobs_raw.json")
@@ -201,6 +202,17 @@ def run(profile_path: str = PROFILE_PATH) -> list[dict]:
         profile = json.load(fh)
 
     jobs = search_jobs(profile)
+
+    # Load recommendation history and record newly seen jobs. We do NOT filter
+    # the returned raw jobs here because downstream consumers (ranking/report)
+    # expect the full set; deduplication applies to recommendation delivery.
+    history = RecommendationHistory()
+    for job in jobs:
+        h = stable_job_hash(job)
+        if not history.has(h):
+            # record that we're recommending this job now (so future runs skip it)
+            history.add_recommendation(h, job)
+
 
     os.makedirs("data", exist_ok=True)
     with open(JOBS_RAW_PATH, "w", encoding="utf-8") as fh:

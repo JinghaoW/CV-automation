@@ -5,9 +5,9 @@ import os
 import sys
 import time
 
-from openai import OpenAI
-
 import config
+from src.llm_client import OpenAI, validate_llm_configuration
+from src.matching import evaluate_and_enrich_job
 
 PROFILE_PATH = os.path.join("data", "profile.json")
 JOBS_RAW_PATH = os.path.join("data", "jobs_raw.json")
@@ -15,6 +15,13 @@ JOBS_SCORED_PATH = os.path.join("data", "jobs_scored.json")
 
 _DELAY_BETWEEN_CALLS = 1  # seconds – respect rate limits
 _MAX_DESC_CHARS = 3000  # truncate long descriptions to save tokens
+
+
+def _config_value(name: str, default):
+    """Read a config attribute while staying compatible with mocked config modules."""
+    if hasattr(config, "__dict__") and name in config.__dict__:
+        return getattr(config, name)
+    return default
 
 
 def _build_evaluation_prompt(profile: dict, job: dict) -> str:
@@ -46,17 +53,8 @@ def evaluate_job(profile: dict, job: dict, client: OpenAI) -> dict:
     prompt = _build_evaluation_prompt(profile, job)
 
     try:
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.1,
-        )
-        content = response.choices[0].message.content
-        if content is None:
-            raise ValueError("LLM returned no content (content was None)")
-        raw = content.strip()
-        evaluation = json.loads(raw)
-    except json.JSONDecodeError as exc:
+        evaluation = client.generate_json(prompt, temperature=0.1)
+    except ValueError as exc:
         print(
             f"[evaluate_jobs] JSON parse error for '{job.get('title')}': {exc}",
             file=sys.stderr,
@@ -69,7 +67,8 @@ def evaluate_job(profile: dict, job: dict, client: OpenAI) -> dict:
         )
         evaluation = {"score": 0, "classification": "unknown", "reasoning": str(exc)}
 
-    enriched = {**job, **evaluation}
+    # Combine LLM evaluation with deterministic signals (keywords, embeddings)
+    enriched = evaluate_and_enrich_job(profile, job, evaluation)
     return enriched
 
 
@@ -78,11 +77,23 @@ def evaluate_jobs(
     jobs_raw_path: str = JOBS_RAW_PATH,
 ) -> list[dict]:
     """Load profile and raw jobs, evaluate each, save scored jobs, and return them."""
-    api_key = config.OPENAI_API_KEY
-    if not api_key:
-        raise EnvironmentError(
-            "OPENAI_API_KEY is not set. Add it to config.py or export it as an environment variable."
-        )
+    provider = str(_config_value("LLM_PROVIDER", "openai"))
+    api_key = _config_value("LLM_API_KEY", "") or _config_value("OPENAI_API_KEY", "")
+    model = str(_config_value("LLM_MODEL", "gpt-4o-mini"))
+    base_url = _config_value("LLM_BASE_URL", "") or None
+    timeout = float(_config_value("LLM_TIMEOUT", 60))
+    max_retries = int(_config_value("LLM_MAX_RETRIES", 3))
+    temperature = float(_config_value("LLM_TEMPERATURE", 0.2))
+
+    validate_llm_configuration(
+        provider=provider,
+        api_key=api_key,
+        model=model,
+        base_url=base_url,
+        timeout=timeout,
+        max_retries=max_retries,
+        temperature=temperature,
+    )
 
     for path in (profile_path, jobs_raw_path):
         if not os.path.exists(path):
@@ -98,7 +109,15 @@ def evaluate_jobs(
         print("[evaluate_jobs] No jobs to evaluate.")
         return []
 
-    client = OpenAI(api_key=api_key)
+    client = OpenAI(
+        provider=provider,
+        api_key=api_key,
+        model=model,
+        base_url=base_url,
+        timeout=timeout,
+        max_retries=max_retries,
+        temperature=temperature,
+    )
     scored_jobs: list[dict] = []
 
     print(f"[evaluate_jobs] Evaluating {len(jobs)} jobs …")
