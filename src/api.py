@@ -158,7 +158,7 @@ async def trigger_run(cv_filename: Optional[str] = None) -> RunRecord:
         record["status"] = "completed"
     except Exception as exc:  # noqa: BLE001
         record["status"] = "failed"
-        record["error"] = str(exc)
+        record["error"] = f"{type(exc).__name__}: {exc}"
 
     record["finished_at"] = datetime.now(tz=timezone.utc).isoformat()
     _upsert_run_record(run_id, record)
@@ -220,6 +220,8 @@ async def update_recommendation_status(job_hash: str, status: str) -> dict:
     """Update the status of a job recommendation.
 
     Valid status values: ``viewed``, ``applied``, ``dismissed``.
+    The ``recommended`` status is the initial state set by the system and
+    cannot be set through this endpoint.
     """
     valid = {"viewed", "applied", "dismissed"}
     if status not in valid:
