@@ -1,0 +1,16 @@
+{
+  "4ade82c8c32b2cb329ebed8437eebd27deeeeb32db959899af6bb8e6d81a748f": {
+    "job_hash": "4ade82c8c32b2cb329ebed8437eebd27deeeeb32db959899af6bb8e6d81a748f",
+    "first_seen": "2026-05-06T04:19:37.494984+00:00",
+    "last_seen": "2026-05-06T04:19:37.495005+00:00",
+    "times_recommended": 1,
+    "viewed_at": null,
+    "applied_at": null,
+    "dismissed_at": null,
+    "job_snapshot": {
+      "title": "X",
+      "url": "https://x.com",
+      "source": "remotive"
+    }
+  }
+}
